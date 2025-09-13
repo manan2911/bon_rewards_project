@@ -1,68 +1,40 @@
-import os
-import django
-from datetime import date, timedelta
-
-# Setup Django
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "bon_rewards.settings")
-django.setup()
-
 from rewards.models import User, Bill, Reward
+from django.utils import timezone
+from datetime import timedelta
 
+# Clear old data
+User.objects.all().delete()
+Bill.objects.all().delete()
+Reward.objects.all().delete()
 
-def run():
-    # Clear old data
-    User.objects.all().delete()
-    Bill.objects.all().delete()
-    Reward.objects.all().delete()
-
-    today = date.today()
-
-    # 1️⃣ User who has NOT paid bills on time
-    late_user = User.objects.create(name="Late Payer", email="late@example.com")
-    bill1 = Bill.objects.create(
-        user=late_user, amount=1000, due_date=today - timedelta(days=5),
-        payment_date=today, status="PAID"  # Paid late
-    )
-    bill2 = Bill.objects.create(
-        user=late_user, amount=1200, due_date=today - timedelta(days=3),
-        payment_date=None, status="PENDING"  # Not paid yet
-    )
-    bill3 = Bill.objects.create(
-        user=late_user, amount=1500, due_date=today + timedelta(days=2)
-    )
-
-    # 2️⃣ User with 3 unpaid bills (like your current one)
-    pending_user = User.objects.create(name="Pending Payer", email="pending@example.com")
-    Bill.objects.create(user=pending_user, amount=1100, due_date=today + timedelta(days=2))
-    Bill.objects.create(user=pending_user, amount=1300, due_date=today + timedelta(days=5))
-    Bill.objects.create(user=pending_user, amount=1400, due_date=today + timedelta(days=8))
-
-    # 3️⃣ User who should instantly get a reward (all last 3 bills paid on time)
-    good_user = User.objects.create(name="OnTime Payer", email="ontime@example.com")
+# User 1: Has overdue bills
+u1 = User.objects.create(name="Late Payer", email="late@example.com")
+for i in range(3):
     Bill.objects.create(
-        user=good_user, amount=900,
-        due_date=today - timedelta(days=10),
-        payment_date=today - timedelta(days=10), status="PAID"
+        user=u1,
+        amount=100 + i*50,
+        due_date=timezone.now() - timedelta(days=10*(i+1)),
+        payment_date=timezone.now() + timedelta(days=5),  # paid late
     )
+
+# User 2: Has bills pending
+u2 = User.objects.create(name="Pending Payer", email="pending@example.com")
+for i in range(3):
     Bill.objects.create(
-        user=good_user, amount=1000,
-        due_date=today - timedelta(days=7),
-        payment_date=today - timedelta(days=7), status="PAID"
+        user=u2,
+        amount=200 + i*50,
+        due_date=timezone.now() + timedelta(days=10*(i+1)),
     )
+
+# User 3: Qualified for reward
+u3 = User.objects.create(name="On-Time Payer", email="ontime@example.com")
+for i in range(3):
     Bill.objects.create(
-        user=good_user, amount=1100,
-        due_date=today - timedelta(days=3),
-        payment_date=today - timedelta(days=3), status="PAID"
+        user=u3,
+        amount=150 + i*50,
+        due_date=timezone.now() - timedelta(days=10*(i+1)),
+        payment_date=timezone.now() - timedelta(days=10*(i+1)),  # paid on time
     )
+Reward.objects.create(user=u3, reward_type="$10 Amazon Gift Card")
 
-    # Trigger reward for good_user
-    Reward.objects.create(user=good_user)
-
-    print("✅ Seed data created:")
-    print(" - 1 user with late/missed bills")
-    print(" - 1 user with 3 pending bills")
-    print(" - 1 user with 3 on-time payments (reward unlocked)")
-
-
-if __name__ == "__main__":
-    run()
+print("✅ Seed data created successfully!")
